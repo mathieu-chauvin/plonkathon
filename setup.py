@@ -6,6 +6,7 @@ from verifier import VerificationKey
 from dataclasses import dataclass
 from poly import Polynomial, Basis
 
+
 # Recover the trusted setup from a file in the format used in
 # https://github.com/iden3/snarkjs#7-prepare-phase-2
 SETUP_FILE_G1_STARTPOS = 80
@@ -69,7 +70,24 @@ class Setup(object):
         # Run inverse FFT to convert values from Lagrange basis to monomial basis
         # Optional: Check values size does not exceed maximum power setup can handle
         # Compute linear combination of setup with values
-        return NotImplemented
+
+        # inverse fft
+        inv = Polynomial.ifft(values)
+
+        # check values size
+        assert len(inv.values) <= len(self.powers_of_x)
+
+        # compute linear combination
+        # build pairs
+        pairs = []
+        for i in range(len(inv.values)):
+            pairs.append((self.powers_of_x[i], inv.values[i]))
+
+        return ec_lincomb(pairs)
+    
+
+
+        #return NotImplemented
 
     # Generate the verification key for this program with the given setup
     def verification_key(self, pk: CommonPreprocessedInput) -> VerificationKey:
