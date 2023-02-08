@@ -105,6 +105,7 @@ def prover_test_dummy_verifier(setup):
 
     print("Beginning prover test with test verifier")
     program = Program(["e public", "c <== a * b", "e <== c * d"], 8)
+    print(program.constraints)
     assignments = {"a": 3, "b": 4, "c": 12, "d": 5, "e": 60}
     prover = Prover(setup, program)
     proof = prover.prove(assignments)
