@@ -110,6 +110,8 @@ class Prover:
             C_values[i] = Scalar(witness[program.wires()[i].O])
 
         print("A_values", A_values)
+        print("program pk", self.pk.QM.values)
+        print("basis", self.pk.QM.basis)
 
         # Construct A, B, C Lagrange interpolation polynomials for
         # A_values, B_values, C_values
@@ -126,6 +128,8 @@ class Prover:
         print(eval_a)
         eval_a2 = self.A.barycentric_eval(roots_of_unity[1])
         print(eval_a2)
+        eval_a3 = self.A.barycentric_eval(roots_of_unity[6])
+        print(eval_a3)
         
 
         # Compute a_1, b_1, c_1 commitments to A, B, C polynomials
@@ -157,6 +161,33 @@ class Prover:
         # Note the convenience function:
         #       self.rlc(val1, val2) = val_1 + self.beta * val_2 + gamma
 
+        # Compute Z_values
+        roots_of_unity = Scalar.roots_of_unity(group_order)
+
+        Z_values = [Scalar(1)]
+        for i in range(group_order):
+             #fprime = self.rlc(A(roots_of_unity[i]), i)
+            Z_values.append(Z_values[-1]
+            * self.rlc(self.A.values[i], roots_of_unity[i])
+            * self.rlc(self.B.values[i], 2 * roots_of_unity[i])
+            * self.rlc(self.C.values[i], 3 * roots_of_unity[i])
+            / self.rlc(self.A.values[i], self.pk.S1.values[i])
+            / self.rlc(self.B.values[i], self.pk.S2.values[i])
+            / self.rlc(self.C.values[i], self.pk.S3.values[i])
+            ) 
+
+        # fprime(g_i) = f(g_i) + B*i + gamma
+       
+               
+        #for i in range(1, group_order):
+        #    Z_values[i] = Z_values[i-1] 
+        #    Z_values[i] = Z_values[i-1] * self.rlc(self.A.values[i], roots_of_unity[i]) * self.rlc(self.B.values[i], 2 * roots_of_unity[i]) * self.rlc(self.C.values[i], 3 * roots_of_unity[i])/ self.rlc(self.A.values[i], self.pk.S1.values[i]) / self.rlc(self.B.values[i], self.pk.S2.values[i]) / self.rlc(self.C.values[i], self.pk.S3.values[i])
+
+
+
+        print("Z_values", Z_values)
+
+
         # Check that the last term Z_n = 1
         assert Z_values.pop() == 1
 
@@ -176,6 +207,9 @@ class Prover:
 
         # Construct Z, Lagrange interpolation polynomial for Z_values
         # Cpmpute z_1 commitment to Z polynomial
+
+        Z = Polynomial(Z_values, Basis.LAGRANGE)
+        z_1 = setup.commit(Z)
 
         # Return z_1
         return Message2(z_1)
