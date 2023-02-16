@@ -10,6 +10,22 @@ G2Point = NewType("G2Point", tuple[b.FQ2, b.FQ2])
 class Scalar(Field):
     field_modulus = b.curve_order
 
+    def __add__(self, other):
+        from poly import Polynomial, Basis
+        if isinstance(other, Polynomial):
+            if other.basis == Basis.LAGRANGE:
+                return Polynomial(
+                    [x + self for x in other.values],
+                    other.basis,
+                )
+            else:
+                return Polynomial(
+                    [other.values[0] + self] + other.values[1:],
+                    other.basis
+                )
+        else:
+            return super().__add__(other)
+
     # Gets the first root of unity of a given group order
     @classmethod
     def root_of_unity(cls, group_order: int):
