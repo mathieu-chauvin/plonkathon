@@ -337,11 +337,10 @@ class Prover:
         roots_of_unity_4n_poly_mono = roots_of_unity_4n_poly.ifft()
         print("roots_of_unity_4n_poly_mono", roots_of_unity_4n_poly_mono.values)
 
-        x = self.fft_expand(Polynomial([Scalar(0), Scalar(1)]+[Scalar(0)]*(group_order-2), Basis.MONOMIAL).fft())
-        print("x", x.values)
-        print ("len x", len(x.values))
-        print ("len Z_big", len(self.Z_big.values))
-        assert len(x.values) == len(self.Z_big.values)
+#        print("x", x.values)
+ #       print ("len x", len(x.values))
+  #      print ("len Z_big", len(self.Z_big.values))
+   #     assert len(x.values) == len(self.Z_big.values)
         QUOT_big = (
             self.A_big * self.QL_big
             + self.B_big * self.QR_big
@@ -575,10 +574,30 @@ class Prover:
         #   + v**5 * (S2 - s2_eval)
         # ) / (X - zeta)
 
+        #X = Polynomial([Scalar(1)] + [Scalar(0)] * (group_order - 1), Basis.LAGRANGE)
+
+
+        self.X_big = self.fft_expand(Polynomial([Scalar(0), Scalar(1)]+[Scalar(0)]*(group_order-2), Basis.MONOMIAL).fft())
+
+        W_Z_big = (R_big
+            + (self.A_big - self.a_eval) * self.v
+            + (self.B_big - self.b_eval) * self.v**2
+            + (self.C_big - self.c_eval) * self.v**3
+            + (self.S1_big - self.s1_eval) * self.v**4
+            + (self.S2_big - self.s2_eval) * self.v**5
+        ) / (self.X_big - zeta)
+
+        W_z_coeffs = self.expanded_evals_to_coeffs(W_Z_big).values
+        
+
         # Check that degree of W_z is not greater than n
         assert W_z_coeffs[group_order:] == [0] * (group_order * 3)
 
+        W_Z = Polynomial(W_z_coeffs[:group_order], Basis.MONOMIAL).fft()
+
         # Compute W_z_1 commitment to W_z
+
+        W_z_1 = self.setup.commit(W_Z)
 
         # Generate proof that the provided evaluation of Z(z*w) is correct. This
         # awkwardly different term is needed because the permutation accumulator
@@ -586,10 +605,21 @@ class Prover:
         # coordinates, and not just within one coordinate.
         # In other words: Compute W_zw = (Z - z_shifted_eval) / (X - zeta * ω)
 
+        #w is root of unity
+        w = Scalar.root_of_unity(group_order)
+
+        W_zw_big = (self.Z_big - self.z_shifted_eval) / (self.X_big - zeta * w)
+
+        W_zw_coeffs = self.expanded_evals_to_coeffs(W_zw_big).values
+
         # Check that degree of W_z is not greater than n
         assert W_zw_coeffs[group_order:] == [0] * (group_order * 3)
 
         # Compute W_z_1 commitment to W_z
+
+        W_zw = Polynomial(W_zw_coeffs[:group_order], Basis.MONOMIAL).fft()
+
+        W_zw_1 = self.setup.commit(W_zw)
 
         print("Generated final quotient witness polynomials")
 
