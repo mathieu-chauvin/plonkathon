@@ -73,23 +73,89 @@ class VerificationKey:
 
     # Basic, easier-to-understand version of what's going on
     def verify_proof_unoptimized(self, group_order: int, pf, public=[]) -> bool:
+
+
         # 4. Compute challenges
+        proof = pf.flatten()
+        beta, gamma, alpha, zeta, v, u = self.compute_challenges(pf)
+        root_of_unity = Scalar.root_of_unity(self.group_order)
 
         # 5. Compute zero polynomial evaluation Z_H(ζ) = ζ^n - 1
+        ZH_zeta = zeta ** group_order - 1
 
         # 6. Compute Lagrange polynomial evaluation L_0(ζ)
+        L0_z =  (zeta ** group_order - 1) / (group_order * (zeta - 1))
+        #L0 = Polynomial([Scalar(1)] + [Scalar(0)] *group_order, Basis.LAGRANGE).barycentric_eval(zeta)
 
         # 7. Compute public input polynomial evaluation PI(ζ).
+        PI_ev = Polynomial([Scalar(-x) for x in public]+[Scalar(0)]*(group_order-len(public)), Basis.LAGRANGE).barycentric_eval(zeta)
 
         # Recover the commitment to the linearization polynomial R,
         # exactly the same as what was created by the prover
 
+        R_pt = ec_lincomb(
+            [
+                (self.Qm, proof["a_eval"]*proof["b_eval"]),
+                (self.Ql, proof["a_eval"]),
+                (self.Qr, proof["b_eval"]),
+                (self.Qo, proof["c_eval"]),
+                (b.G1, PI_ev),
+                (self.Qc, 1),
+                (proof["z_1"], alpha * (proof["a_eval"] + beta * zeta + gamma) * (proof["b_eval"] + beta * 2 * zeta + gamma) * (proof["c_eval"] + beta * 3 * zeta + gamma)),
+                (self.S3, - alpha * beta * proof["z_shifted_eval"] * (proof["a_eval"] + beta * proof["s1_eval"] + gamma) * (proof["b_eval"] + beta * proof["s2_eval"] + gamma)),
+                (b.G1, - (proof["c_eval"] + gamma) * alpha * proof["z_shifted_eval"] * (proof["a_eval"] + beta * proof["s1_eval"] + gamma) * (proof["b_eval"] + beta * proof["s2_eval"] + gamma)),
+                (proof["z_1"],alpha **2 * L0_z),
+                (b.G1, -(alpha**2)*L0_z),
+                (proof["t_lo_1"],-ZH_zeta),
+                (proof["t_mid_1"],-ZH_zeta*(zeta**group_order)),
+                (proof["t_hi_1"],-ZH_zeta*(zeta**(2*group_order))),
+                
+            ]
+        )
+
+        print("verifier R_pt", R_pt)
+
+
         # Verify that R(z) = 0 and the prover-provided evaluations
         # A(z), B(z), C(z), S1(z), S2(z) are all correct
 
+
+        assert b.pairing (
+            b.add(self.X_2,ec_mul(b.G2,-zeta)),
+            proof["W_z_1"]
+        ) == b.pairing (
+            b.G2,
+            ec_lincomb([(R_pt,1),
+                (proof["a_1"],v),
+                (b.G1,-proof["a_eval"]*v),
+                (proof["b_1"],v**2),
+                (b.G1,-proof["b_eval"]*(v**2)),
+                (proof["c_1"],v**3),
+                (b.G1,-proof["c_eval"]*(v**3)),
+                (self.S1,v**4),
+                (b.G1,-proof["s1_eval"]*(v**4)),
+                (self.S2,v**5),
+                (b.G1,-proof["s2_eval"]*(v**5))
+                ])
+        )
+
+        
         # Verify that the provided value of Z(zeta*w) is correct
 
-        return False
+
+        assert b.pairing (
+            b.add(self.X_2,ec_mul(b.G2,-zeta*root_of_unity)),
+            proof["W_zw_1"]
+            ) == b.pairing (
+                b.G2,
+                ec_lincomb([
+                    (proof["z_1"],1),
+                    (b.G1,-proof["z_shifted_eval"])
+                ]
+                )
+            )
+
+        return True
 
     # Compute challenges (should be same as those computed by prover)
     def compute_challenges(
