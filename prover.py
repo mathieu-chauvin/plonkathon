@@ -98,7 +98,7 @@ class Prover:
         # - A_values: witness[program.wires()[i].L]
         # - B_values: witness[program.wires()[i].R]
         # - C_values: witness[program.wires()[i].O]
-        print ("witness", witness)
+        
 
         A_values = [Scalar(0)]*group_order
         B_values = [Scalar(0)]*group_order
@@ -109,9 +109,6 @@ class Prover:
             B_values[i] = Scalar(witness[program.wires()[i].R])
             C_values[i] = Scalar(witness[program.wires()[i].O])
 
-        print("A_values", A_values)
-        print("program pk", self.pk.QM.values)
-        print("basis", self.pk.QM.basis)
 
         # Construct A, B, C Lagrange interpolation polynomials for
         # A_values, B_values, C_values
@@ -119,17 +116,15 @@ class Prover:
         self.B = Polynomial(B_values, Basis.LAGRANGE)
         self.C = Polynomial(C_values, Basis.LAGRANGE)
 
-        print("A", self.A.values)
-
         # Compute A, B, C evaluations at roots of unity
         roots_of_unity = Scalar.roots_of_unity(group_order)
-        print("roots_of_unity", roots_of_unity)
+        
         eval_a = self.A.barycentric_eval(Scalar(1))
-        print(eval_a)
+        #print(eval_a)
         eval_a2 = self.A.barycentric_eval(roots_of_unity[1])
-        print(eval_a2)
+        #print(eval_a2)
         eval_a3 = self.A.barycentric_eval(roots_of_unity[6])
-        print(eval_a3)
+        #print(eval_a3)
         
 
         # Compute a_1, b_1, c_1 commitments to A, B, C polynomials
@@ -185,10 +180,7 @@ class Prover:
 
 
 
-        print("Z_values", Z_values)
-
-
-        # Check that the last term Z_n = 1
+       # Check that the last term Z_n = 1
         assert Z_values.pop() == 1
 
         # Sanity-check that Z was computed correctly
@@ -224,7 +216,6 @@ class Prover:
         # where µ^(4n) = 1
 
         roots_of_unity_4n = Scalar.roots_of_unity(group_order * 4)
-        print("roots_of_unity_4", roots_of_unity_4n)
         assert len(roots_of_unity_4n) == group_order * 4
         
         # Using self.fft_expand, move A, B, C into coset extended Lagrange basis
@@ -268,11 +259,8 @@ class Prover:
         Z_H = Polynomial(
             [Scalar(-1)] + [Scalar(0)] * (group_order - 2) + [Scalar(1)], Basis.MONOMIAL
         ).fft()
-        print("Z_H", Z_H.values)
         ZH_big = self.fft_expand(Z_H)
-        print ("ZH_big eval", ZH_big.barycentric_eval(roots_of_unity_4n[3]))
-        print("ZH_big", ZH_big.values)
-
+        
         
 
         ZH_big_2 = Polynomial(
@@ -282,12 +270,9 @@ class Prover:
             ],
             Basis.LAGRANGE,
         )
-        print("ZH_big_2", ZH_big_2.values)
-        print ("Z_H_2 eval", ZH_big_2.barycentric_eval(roots_of_unity_4n[3]))
         self.ZH_big = ZH_big_2
         # transform to normal coefficients
-        normal_coefficients = ZH_big_2.coset_extended_lagrange_to_coeffs(self.fft_cofactor)
-        print("normal_coefficients", normal_coefficients.values)
+        #normal_coefficients = ZH_big_2.coset_extended_lagrange_to_coeffs(self.fft_cofactor)
         #assert ZH_big.barycentric_eval(roots_of_unity_4n[1]) == ZH_big_2.barycentric_eval(roots_of_unity_4n[1])
 
         #assert ZH_big_2.values == ZH_big.values
@@ -296,9 +281,9 @@ class Prover:
             [(Scalar(x)) for x in [21888242871839275222246405745257275088548364400416034343698204186575808495616, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], 
             Basis.MONOMIAL
         )
-        print("ZH_3", ZH_3.values)
+        #print("ZH_3", ZH_3.values)
         ZH_3_big = self.fft_expand(ZH_3.fft())
-        print("ZH_3_big", ZH_3_big.values)
+        #print("ZH_3_big", ZH_3_big.values)
 
         #assert ZH_3_big == ZH_big_2
 
@@ -331,11 +316,11 @@ class Prover:
         #    L0 = Lagrange polynomial, equal at all roots of unity except 1
 
         roots_of_unity_4n_poly = Polynomial(roots_of_unity_4n, Basis.LAGRANGE)
-        print("roots_of_unity_4n_poly", roots_of_unity_4n_poly.values)
+        #print("roots_of_unity_4n_poly", roots_of_unity_4n_poly.values)
 
         # to monomial
-        roots_of_unity_4n_poly_mono = roots_of_unity_4n_poly.ifft()
-        print("roots_of_unity_4n_poly_mono", roots_of_unity_4n_poly_mono.values)
+        #roots_of_unity_4n_poly_mono = roots_of_unity_4n_poly.ifft()
+        #print("roots_of_unity_4n_poly_mono", roots_of_unity_4n_poly_mono.values)
 
 #        print("x", x.values)
  #       print ("len x", len(x.values))
@@ -360,12 +345,8 @@ class Prover:
         )
         QUOT_big /= ZH_big_2
 
-        print("QUOT_big", QUOT_big.values)
-        print("len QUOT_big", len(QUOT_big.values))
-
+       
         quot_to_coeffs = self.expanded_evals_to_coeffs(QUOT_big)
-        print("quot_to_coeffs", quot_to_coeffs.values)
-        print("len quot_to_coeffs", len(quot_to_coeffs.values))
         
 
         # Sanity check: QUOT has degree < 3n
@@ -378,8 +359,7 @@ class Prover:
         # Split up T into T1, T2 and T3 (needed because T has degree 3n - 4, so is
         # too big for the trusted setup)
 
-        print("len T", len(QUOT_big.values))
-
+       
         T1 = Polynomial(quot_to_coeffs.values[:group_order], Basis.MONOMIAL).fft()
         T2 = Polynomial(quot_to_coeffs.values[group_order : 2 * group_order], Basis.MONOMIAL).fft()
         T3 = Polynomial(quot_to_coeffs.values[2 * group_order : 3* group_order], Basis.MONOMIAL).fft()
@@ -483,9 +463,7 @@ class Prover:
         L1_eval = L1.barycentric_eval(zeta)
         L1_big = self.fft_expand(L1)
 
-        print(" c eval",self.c_eval)
-        print("c type",type(self.c_eval))
-
+       
         S3_big = self.fft_expand(self.pk.S3)
 
         PI_ev = self.PI.barycentric_eval(zeta)
@@ -507,8 +485,7 @@ class Prover:
         #test = Scalar(3)+self.A_big
 
         int_rlc = self.rlc(self.c_eval,self.S3_big)
-        print("int_rlc",int_rlc)
-
+        
         zh_zeta = zeta**group_order - 1
         group_order = self.group_order
 
@@ -528,17 +505,10 @@ class Prover:
 
         first_permutation = ((self.Z_big-Scalar(1))*L1_eval)
 
-        print(" len T1",len(self.T1.values))
-        print(" len T2",len(self.T2.values))
-        print(" len T3",len(self.T3.values))
-
         self.T1_big = self.fft_expand(self.T1)
         self.T2_big = self.fft_expand(self.T2)
         self.T3_big = self.fft_expand(self.T3)
-        print(" len T1 big",len(self.T1_big.values))
-        print(" len T2 big",len(self.T2_big.values))
-        print(" len T3 big",len(self.T3_big.values))
-
+       
         t_linearisation = (self.T1_big + self.T2_big * (zeta ** self.group_order) + self.T3_big * (zeta ** (2 * self.group_order))) * zh_zeta
 
         R_big = linearisation_constraints + permutation*self.alpha + first_permutation*(self.alpha**2) - t_linearisation
