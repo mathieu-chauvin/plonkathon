@@ -39,18 +39,58 @@ class VerificationKey:
     # efficiently batch them
     def verify_proof(self, group_order: int, pf, public=[]) -> bool:
         # 4. Compute challenges
+        proof = pf.flatten()
+        beta, gamma, alpha, zeta, v, u = self.compute_challenges(pf)
+        root_of_unity = Scalar.root_of_unity(self.group_order)
 
         # 5. Compute zero polynomial evaluation Z_H(ζ) = ζ^n - 1
+        ZH_zeta = zeta ** group_order - 1
 
         # 6. Compute Lagrange polynomial evaluation L_0(ζ)
+        L0_z =  (zeta ** group_order - 1) / (group_order * (zeta - 1))
 
         # 7. Compute public input polynomial evaluation PI(ζ).
+        PI_ev = Polynomial([Scalar(-x) for x in public]+[Scalar(0)]*(group_order-len(public)), Basis.LAGRANGE).barycentric_eval(zeta)
+
 
         # Compute the constant term of R. This is not literally the degree-0
         # term of the R polynomial; rather, it's the portion of R that can
         # be computed directly, without resorting to elliptic cutve commitments
 
+        R0 = PI_ev - L0_z * alpha **2 -alpha * (proof["a_eval"] + beta * proof["s1_eval"] + gamma) * (proof["b_eval"] + beta * proof["s2_eval"] + gamma) * (proof["c_eval"] + gamma) * proof["z_shifted_eval"]
+
+        
+
         # Compute D = (R - r0) + u * Z, and E and F
+
+        D = ec_lincomb(
+            [
+                (self.Qm, proof["a_eval"]*proof["b_eval"]),
+                (self.Ql, proof["a_eval"]),
+                (self.Qr, proof["b_eval"]),
+                (self.Qo, proof["c_eval"]),
+                (self.Qc, 1),
+                (proof["z_1"], (proof["a_eval"]+beta*zeta+gamma)*(proof["b_eval"]+beta*2*zeta+gamma)*(proof["c_eval"]+beta*3*zeta+gamma)*alpha + L0_z * alpha**2 + u),
+                (self.S3, -(proof["a_eval"]+beta*proof["s1_eval"]+gamma)*(proof["b_eval"]+beta*proof["s2_eval"]+gamma)*alpha*beta*proof["z_shifted_eval"]),
+                (proof["t_lo_1"], -ZH_zeta),
+                (proof["t_mid_1"], -ZH_zeta*zeta**group_order),
+                (proof["t_hi_1"], -ZH_zeta*zeta**(2*group_order)),
+            ]
+        )
+
+        F = ec_lincomb(
+            [
+                (D, 1),
+                (proof["a_1"], v),
+                (proof["b_1"], v**2),
+                (proof["c_1"], v**3),
+                (self.S1, v**4),
+                (self.S2, v**5),
+            ]
+        )
+
+        E = ec_mul(b.G1, 
+        -R0 + v * proof["a_eval"] + v**2 * proof["b_eval"] + v**3 * proof["c_eval"] + v**4 * proof["s1_eval"] + v**5 * proof["s2_eval"] + u * proof["z_shifted_eval"])
 
         # Run one pairing check to verify the last two checks.
         # What's going on here is a clever re-arrangement of terms to check
@@ -69,7 +109,25 @@ class VerificationKey:
         # so at this point we can take a random linear combination of the two
         # checks, and verify it with only one pairing.
 
-        return False
+        assert b.pairing(
+            self.X_2,
+            b.add(proof["W_z_1"],ec_mul(proof["W_zw_1"],u)),
+
+        )== b.pairing(
+
+            b.G2,
+            ec_lincomb(
+                [
+                    (proof["W_z_1"],zeta),
+                    (proof["W_zw_1"],u*zeta*root_of_unity),
+                    (F, 1),
+                    (E, -1),
+                ]
+            )
+            
+        )
+
+        return True
 
     # Basic, easier-to-understand version of what's going on
     def verify_proof_unoptimized(self, group_order: int, pf, public=[]) -> bool:
@@ -85,7 +143,7 @@ class VerificationKey:
 
         # 6. Compute Lagrange polynomial evaluation L_0(ζ)
         L0_z =  (zeta ** group_order - 1) / (group_order * (zeta - 1))
-        #L0 = Polynomial([Scalar(1)] + [Scalar(0)] *group_order, Basis.LAGRANGE).barycentric_eval(zeta)
+        #L0_z = Polynomial([Scalar(1)] + [Scalar(0)] *group_order, Basis.LAGRANGE).barycentric_eval(zeta)
 
         # 7. Compute public input polynomial evaluation PI(ζ).
         PI_ev = Polynomial([Scalar(-x) for x in public]+[Scalar(0)]*(group_order-len(public)), Basis.LAGRANGE).barycentric_eval(zeta)
