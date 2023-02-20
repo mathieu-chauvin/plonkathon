@@ -5,6 +5,7 @@ from typing import Optional
 from dataclasses import dataclass
 from transcript import Transcript, Message1, Message2, Message3, Message4, Message5
 from poly import Polynomial, Basis
+import random
 
 
 @dataclass
@@ -91,6 +92,9 @@ class Prover:
         setup = self.setup
         group_order = self.group_order
 
+        #Generate random blinding scalars (b1, . . . , b9) ∈ F
+        #b1 = random
+
         if None not in witness:
             witness[None] = 0
 
@@ -98,11 +102,19 @@ class Prover:
         # - A_values: witness[program.wires()[i].L]
         # - B_values: witness[program.wires()[i].R]
         # - C_values: witness[program.wires()[i].O]
+        roots_of_unity = Scalar.roots_of_unity(group_order)
+        ZH = Polynomial(
+            [
+                ((Scalar(r)) ** group_order -1) for r in roots_of_unity
+            ],
+            Basis.LAGRANGE,
+        )
         
 
-        A_values = [Scalar(0)]*group_order
+        A_values = [Scalar(0)]*group_order 
         B_values = [Scalar(0)]*group_order
         C_values = [Scalar(0)]*group_order
+
 
         for i in range(len(program.wires())):
             A_values[i] = Scalar(witness[program.wires()[i].L])
@@ -112,9 +124,11 @@ class Prover:
 
         # Construct A, B, C Lagrange interpolation polynomials for
         # A_values, B_values, C_values
-        self.A = Polynomial(A_values, Basis.LAGRANGE)
-        self.B = Polynomial(B_values, Basis.LAGRANGE)
-        self.C = Polynomial(C_values, Basis.LAGRANGE)
+        self.A = Polynomial(A_values, Basis.LAGRANGE)+ ZH
+        self.B = Polynomial(B_values, Basis.LAGRANGE)+ ZH
+        self.C = Polynomial(C_values, Basis.LAGRANGE)+ ZH
+
+        #b = [Scalar.random() for i in range(11)]
 
         # Compute A, B, C evaluations at roots of unity
         roots_of_unity = Scalar.roots_of_unity(group_order)
@@ -256,13 +270,6 @@ class Prover:
 
         # Compute Z_H = X^N - 1, also in evaluation form in the coset
 
-        Z_H = Polynomial(
-            [Scalar(-1)] + [Scalar(0)] * (group_order - 2) + [Scalar(1)], Basis.MONOMIAL
-        ).fft()
-        ZH_big = self.fft_expand(Z_H)
-        
-        
-
         ZH_big_2 = Polynomial(
             [
                 ((Scalar(r)*self.fft_cofactor) ** group_order -1)
@@ -271,24 +278,7 @@ class Prover:
             Basis.LAGRANGE,
         )
         self.ZH_big = ZH_big_2
-        # transform to normal coefficients
-        #normal_coefficients = ZH_big_2.coset_extended_lagrange_to_coeffs(self.fft_cofactor)
-        #assert ZH_big.barycentric_eval(roots_of_unity_4n[1]) == ZH_big_2.barycentric_eval(roots_of_unity_4n[1])
-
-        #assert ZH_big_2.values == ZH_big.values
-
-        ZH_3 = Polynomial(
-            [(Scalar(x)) for x in [21888242871839275222246405745257275088548364400416034343698204186575808495616, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], 
-            Basis.MONOMIAL
-        )
-        #print("ZH_3", ZH_3.values)
-        ZH_3_big = self.fft_expand(ZH_3.fft())
-        #print("ZH_3_big", ZH_3_big.values)
-
-        #assert ZH_3_big == ZH_big_2
-
-
-
+       
 
         # Compute L0, the Lagrange basis polynomial that evaluates to 1 at x = 1 = ω^0
         # and 0 at other roots of unity
